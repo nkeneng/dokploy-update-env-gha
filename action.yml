@@ -1,0 +1,31 @@
+name: Merge Dokploy Env Var
+description: Fetches Dokploy project config, merges a single env var, and updates the project without dropping existing vars.
+inputs:
+  dokploy_url:
+    description: Base Dokploy URL (include auth if required), e.g. https://user:pass@host
+    required: true
+  api_key:
+    description: Dokploy API key
+    required: true
+  project_id:
+    description: Dokploy project ID
+    required: true
+  env_name:
+    description: Environment variable name to upsert
+    required: true
+  env_value:
+    description: Environment variable value to set
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Merge env variable into Dokploy project
+      shell: bash
+      env:
+        DOKPLOY_URL: ${{ inputs.dokploy_url }}
+        DOKPLOY_API_KEY: ${{ inputs.api_key }}
+        DOKPLOY_PROJECT_ID: ${{ inputs.project_id }}
+        ENV_NAME: ${{ inputs.env_name }}
+        ENV_VALUE: ${{ inputs.env_value }}
+      run: |
+        "$GITHUB_ACTION_PATH/merge-env.sh"
