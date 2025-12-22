@@ -7,8 +7,11 @@ inputs:
   api_key:
     description: Dokploy API key
     required: true
-  project_id:
-    description: Dokploy project ID
+  resource_type:
+    description: Dokploy resource type (project, compose, application, mysql, postgres, redis, mongo, mariadb)
+    required: true
+  resource_id:
+    description: Dokploy resource ID for the selected type
     required: true
   env_name:
     description: Environment variable name to upsert
@@ -24,7 +27,8 @@ runs:
       env:
         DOKPLOY_URL: ${{ inputs.dokploy_url }}
         DOKPLOY_API_KEY: ${{ inputs.api_key }}
-        DOKPLOY_PROJECT_ID: ${{ inputs.project_id }}
+        DOKPLOY_RESOURCE_TYPE: ${{ inputs.resource_type }}
+        DOKPLOY_RESOURCE_ID: ${{ inputs.resource_id }}
         ENV_NAME: ${{ inputs.env_name }}
         ENV_VALUE: ${{ inputs.env_value }}
       run: |
