@@ -4,7 +4,8 @@ set -euo pipefail
 required_vars=(
   DOKPLOY_URL
   DOKPLOY_API_KEY
-  DOKPLOY_PROJECT_ID
+  DOKPLOY_RESOURCE_TYPE
+  DOKPLOY_RESOURCE_ID
   ENV_NAME
   ENV_VALUE
 )
@@ -21,14 +22,67 @@ if ! printf '%s' "$scheme_prefixed_url" | grep -qE '^https?://'; then
   scheme_prefixed_url="https://$scheme_prefixed_url"
 fi
 
-project_url="${scheme_prefixed_url%/}/api/project.one?projectId=${DOKPLOY_PROJECT_ID}"
-project_json="$(curl -fsS -X GET "$project_url" -H "x-api-key: $DOKPLOY_API_KEY")"
-if [ -z "$project_json" ]; then
-  echo "Failed to fetch project config from $project_url" >&2
+resource_type="$(printf '%s' "$DOKPLOY_RESOURCE_TYPE" | tr '[:upper:]' '[:lower:]')"
+resource_id="$DOKPLOY_RESOURCE_ID"
+id_key=""
+read_endpoint=""
+update_endpoint=""
+
+case "$resource_type" in
+  project)
+    id_key="projectId"
+    read_endpoint="project.one"
+    update_endpoint="project.update"
+    ;;
+  compose)
+    id_key="composeId"
+    read_endpoint="compose.one"
+    update_endpoint="compose.update"
+    ;;
+  application)
+    id_key="applicationId"
+    read_endpoint="application.one"
+    update_endpoint="application.update"
+    ;;
+  mysql)
+    id_key="mysqlId"
+    read_endpoint="mysql.one"
+    update_endpoint="mysql.update"
+    ;;
+  postgres)
+    id_key="postgresId"
+    read_endpoint="postgres.one"
+    update_endpoint="postgres.update"
+    ;;
+  redis)
+    id_key="redisId"
+    read_endpoint="redis.one"
+    update_endpoint="redis.update"
+    ;;
+  mongo)
+    id_key="mongoId"
+    read_endpoint="mongo.one"
+    update_endpoint="mongo.update"
+    ;;
+  mariadb)
+    id_key="mariadbId"
+    read_endpoint="mariadb.one"
+    update_endpoint="mariadb.update"
+    ;;
+  *)
+    echo "Unsupported resource type: $DOKPLOY_RESOURCE_TYPE" >&2
+    exit 1
+    ;;
+esac
+
+resource_url="${scheme_prefixed_url%/}/api/${read_endpoint}?${id_key}=${resource_id}"
+resource_json="$(curl -fsS -X GET "$resource_url" -H "x-api-key: $DOKPLOY_API_KEY")"
+if [ -z "$resource_json" ]; then
+  echo "Failed to fetch resource config from $resource_url" >&2
   exit 1
 fi
 
-current_env="$(printf '%s' "$project_json" | jq -r 'if type=="object" and has("env") then .env // "" else "" end')"
+current_env="$(printf '%s' "$resource_json" | jq -r 'if type=="object" and has("env") then .env // "" else "" end')"
 echo "Fetched existing env:" >&2
 printf '%s\n' "$current_env" >&2
 
@@ -57,15 +111,16 @@ fi
 merged_env="$(printf '%s\n' "${merged_lines[@]}")"
 
 payload="$(jq -n \
-  --arg projectId "$DOKPLOY_PROJECT_ID" \
+  --arg id "$resource_id" \
   --arg env "$merged_env" \
-  '{projectId: $projectId, env: $env}')"
+  --arg idKey "$id_key" \
+  '$ARGS.named | {env} + {($idKey): $id}')"
 
-update_url="${scheme_prefixed_url%/}/api/project.update"
+update_url="${scheme_prefixed_url%/}/api/${update_endpoint}"
 curl -fsS -X POST "$update_url" \
   -H "x-api-key: $DOKPLOY_API_KEY" \
   -H "Content-Type: application/json" \
   -d "$payload" \
   >/dev/null
 
-echo "Merged env var '$ENV_NAME' into Dokploy project $DOKPLOY_PROJECT_ID"
+echo "Merged env var '$ENV_NAME' into Dokploy ${resource_type} ${resource_id}"
