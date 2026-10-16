@@ -1,0 +1,18 @@
+name: test
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: bash -n merge-env.sh && bash -n tests/merge-env_test.sh
+      - name: Run tests
+        run: bash tests/merge-env_test.sh
